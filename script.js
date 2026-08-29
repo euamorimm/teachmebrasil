@@ -135,26 +135,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /* ══════════════════════════════════════════════
        ─── 8. CARRUSEL INFINITO AUTO-SCROLL ───
-       Funciona para .razoes_grid y .depoimentos_grid:
-       duplica los elementos para crear un loop continuo
-       y anima vía CSS transform, pausando al pasar el mouse.
-
-       NOTA: se guarda el rafId en el propio elemento
-       (trackEl._carouselRAF) para poder cancelarlo antes
-       de reiniciar el carrusel — evita que dos loops de
-       animación corran a la vez sobre el mismo elemento
-       cuando se agrega un nuevo comentario (esto causaba
-       que el carrusel de testimonios "temblara").
     ══════════════════════════════════════════════ */
 
     function initCarousel(trackEl, speed) {
-        // Si ya había un loop de animación corriendo en este elemento, se cancela
         if (trackEl._carouselRAF) {
             cancelAnimationFrame(trackEl._carouselRAF);
             trackEl._carouselRAF = null;
         }
 
-        // Duplica los hijos para crear el efecto de loop
         const items = Array.from(trackEl.children);
         items.forEach(item => {
             const clone = item.cloneNode(true);
@@ -164,19 +152,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let pos     = 0;
         let paused  = false;
-        const totalW = () => trackEl.scrollWidth / 2; // la mitad = original
+        const totalW = () => trackEl.scrollWidth / 2;
 
         const tick = () => {
             if (!paused) {
                 pos += speed;
-                if (pos >= totalW()) pos = 0; // reinicia sin salto
+                if (pos >= totalW()) pos = 0;
                 trackEl.style.transform = `translateX(-${pos}px)`;
             }
             trackEl._carouselRAF = requestAnimationFrame(tick);
         };
         trackEl._carouselRAF = requestAnimationFrame(tick);
 
-        // Pausa al pasar el mouse (solo se agrega el listener una vez)
         const wrapper = trackEl.parentElement;
         if (!wrapper._carouselHoverBound) {
             wrapper.addEventListener('mouseenter', () => { paused = true; });
@@ -184,31 +171,24 @@ document.addEventListener('DOMContentLoaded', () => {
             wrapper._carouselHoverBound = true;
         }
 
-        // Pausa si la pestaña no está visible (ahorra CPU)
         document.addEventListener('visibilitychange', () => {
             paused = document.hidden;
         });
     }
 
-    // Razones: velocidad 0.4 px/frame (~24px/s a 60fps)
     const razoesGrid = document.querySelector('.razoes_grid');
     if (razoesGrid) initCarousel(razoesGrid, 0.4);
 
-    // Testimonios: velocidad 0.35 px/frame (un poco más lento)
     const depGrid = document.querySelector('.depoimentos_grid');
     if (depGrid) initCarousel(depGrid, 0.35);
 
 
     /* ══════════════════════════════════════════════
        ─── 9. COMENTARIOS CON localStorage ───
-       Formulario de nuevo comentario + renderización
-       de los comentarios guardados en la grilla de
-       testimonios.
     ══════════════════════════════════════════════ */
 
     const STORAGE_KEY = 'tmb_comentarios';
 
-    // ── Carga los comentarios guardados
     function loadComments() {
         try {
             return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
@@ -217,12 +197,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ── Guarda el arreglo en localStorage
     function saveComments(arr) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
     }
 
-    // ── Crea el HTML de una tarjeta de testimonio
     function buildCard(c) {
         const card = document.createElement('div');
         card.className = 'depoimento_card comentario_usuario';
@@ -249,15 +227,12 @@ document.addEventListener('DOMContentLoaded', () => {
         return String(nome || '').trim().split(/\s+/).map(w => w[0].toUpperCase()).slice(0, 2).join('');
     }
 
-    // ── Inyecta los comentarios guardados en la grilla (ANTES de los clones del carrusel)
     function renderComments() {
         const grid = document.querySelector('.depoimentos_grid');
         if (!grid) return;
 
-        // Elimina tarjetas de usuario anteriores (para no duplicar al re-renderizar)
         grid.querySelectorAll('.comentario_usuario').forEach(el => el.remove());
 
-        // Inserta al comienzo de la grilla
         const comments = loadComments();
         const frag = document.createDocumentFragment();
         comments.forEach(c => frag.prepend(buildCard(c)));
@@ -266,10 +241,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     renderComments();
 
-    // ── Formulario de nuevo comentario
     const form = document.getElementById('form_comentario');
     if (form) {
-        // Renderización de las estrellas interactivas
         const starsContainer = form.querySelector('.star_input');
         let ratingValue = 5;
 
@@ -295,7 +268,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Contador de caracteres del textarea
         const textarea = form.querySelector('#c_texto');
         const charCount = form.querySelector('.char_count');
         if (textarea && charCount) {
@@ -319,10 +291,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const novo = { nome, pais, objetivo, texto, rating: ratingValue,
                            ts: Date.now() };
             const todos = loadComments();
-            todos.unshift(novo); // el más reciente primero
+            todos.unshift(novo);
             saveComments(todos);
 
-            // Muestra el mensaje de éxito
             const msg = form.querySelector('.form_sucesso');
             if (msg) {
                 msg.style.display = 'flex';
@@ -338,15 +309,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 charCount.className = 'char_count';
             }
 
-            // Vuelve a renderizar y reinicializa el carrusel de testimonios
-            // (hay que reiniciarlo porque se agregaron nodos nuevos)
             const grid = document.querySelector('.depoimentos_grid');
             if (grid) {
-                // Elimina los clones antiguos
                 grid.querySelectorAll('[aria-hidden="true"]').forEach(el => el.remove());
                 renderComments();
-                // Reinicializa el carrusel con los elementos nuevos
-                // (initCarousel ya cancela el loop anterior por sí mismo)
                 initCarousel(grid, 0.35);
             }
         });
